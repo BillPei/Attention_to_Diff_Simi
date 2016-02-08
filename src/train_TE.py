@@ -26,7 +26,7 @@ from sklearn import svm
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LinearRegression
-
+from sklearn import linear_model
 from scipy import linalg, mat, dot
 
 # from preprocess_wikiQA import compute_map_mrr
@@ -42,9 +42,11 @@ Doesnt work:
 
 '''
 
+#for gpu, we need change the load data function, Dim_Align, and lscalar, dmatrix blabla
+
 def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
                     maxSentLength=64, emb_size=50, hidden_size=200,
-                    margin=0.5, L2_weight=0.0003, update_freq=1, norm_threshold=5.0, max_truncate=30):
+                    margin=0.5, L2_weight=0.0003, update_freq=10000, norm_threshold=5.0, max_truncate=45):
     maxSentLength=max_truncate+2*(window_width-1)
     model_options = locals().copy()
     print "model options", model_options
@@ -112,27 +114,10 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
     rand_values=load_word2vec_to_init(rand_values, rootPath+'vocab_glove_50d.txt')
     embeddings=theano.shared(value=rand_values, borrow=True)      
     
-    #cost_tmp=0
+
     error_sum=0
     
     # allocate symbolic variables for the data
-    '''
-    index = T.iscalar()
-    x_index_l = T.imatrix('x_index_l')   # now, x is the index matrix, must be integer
-    x_index_r = T.imatrix('x_index_r')
-    y = T.ivector('y')  
-    left_l=T.iscalar()
-    right_l=T.iscalar()
-    left_r=T.iscalar()
-    right_r=T.iscalar()
-    length_l=T.iscalar()
-    length_r=T.iscalar()
-    norm_length_l=T.fscalar()
-    norm_length_r=T.fscalar()
-    #mts=T.dmatrix()
-    #wmf=T.dmatrix()
-    cost_tmp=T.fscalar()
-    '''
     index = T.lscalar()
     x_index_l = T.lmatrix('x_index_l')   # now, x is the index matrix, must be integer
     x_index_r = T.lmatrix('x_index_r')
@@ -148,6 +133,23 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
     #mts=T.dmatrix()
     #wmf=T.dmatrix()
     cost_tmp=T.dscalar()
+
+    #GPU
+#     index = T.iscalar()
+#     x_index_l = T.imatrix('x_index_l')   # now, x is the index matrix, must be integer
+#     x_index_r = T.imatrix('x_index_r')
+#     y = T.ivector('y')  
+#     left_l=T.iscalar()
+#     right_l=T.iscalar()
+#     left_r=T.iscalar()
+#     right_r=T.iscalar()
+#     length_l=T.iscalar()
+#     length_r=T.iscalar()
+#     norm_length_l=T.fscalar()
+#     norm_length_r=T.fscalar()
+#     #mts=T.dmatrix()
+#     #wmf=T.dmatrix()
+#     cost_tmp=T.fscalar()
     #x=embeddings[x_index.flatten()].reshape(((batch_size*4),maxSentLength, emb_size)).transpose(0, 2, 1).flatten()
     ishape = (emb_size, maxSentLength)  # this is the size of MNIST images
     filter_size=(emb_size,window_width)
@@ -210,7 +212,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
 #     aver_uni_r=sum_uni_r/layer0_r_input.shape[3]
 #     norm_uni_r=sum_uni_r/T.sqrt((sum_uni_r**2).sum())
 #     
-#     uni_cosine=cosine(sum_uni_l, sum_uni_r)
+    uni_cosine=cosine(vec_l, vec_r)
 #     aver_uni_cosine=cosine(aver_uni_l, aver_uni_r)
 #     uni_sigmoid_simi=debug_print(T.nnet.sigmoid(T.dot(norm_uni_l, norm_uni_r.T)).reshape((1,1)),'uni_sigmoid_simi')    
 #     '''
@@ -220,7 +222,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
 #     rbf=RBF(sum_uni_l, sum_uni_r)
 #     gesd=GESD(sum_uni_l, sum_uni_r)
 #     '''
-#     eucli_1=1.0/(1.0+EUCLID(sum_uni_l, sum_uni_r))#25.2%
+    eucli_1=1.0/(1.0+EUCLID(vec_l, vec_r))#25.2%
 #     #eucli_1_exp=1.0/T.exp(EUCLID(sum_uni_l, sum_uni_r))
 #     
 #     len_l=norm_length_l.reshape((1,1))
@@ -233,10 +235,12 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
     #length_gap=T.log(1+(T.sqrt((len_l-len_r)**2))).reshape((1,1))
     #length_gap=T.sqrt((len_l-len_r)**2)
     #layer3_input=mts
-    layer3_input=T.concatenate([vec_l, vec_r], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
+    layer3_input=T.concatenate([vec_l, vec_r,
+                                uni_cosine,
+                                eucli_1], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
     #layer3_input=T.concatenate([mts,eucli, uni_cosine, len_l, len_r, norm_uni_l-(norm_uni_l+norm_uni_r)/2], axis=1)
     #layer3=LogisticRegression(rng, input=layer3_input, n_in=11, n_out=2)
-    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1], n_out=3)
+    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2, n_out=3)
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
     L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
@@ -300,7 +304,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
             #wmf: wm_train[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
-    train_model_predict = theano.function([index], [cost_this,layer3.errors(y), layer3_input, y],
+    train_model_predict = theano.function([index, cost_tmp], [cost_this,layer3.errors(y), layer3_input, y],
           givens={
             x_index_l: indices_train_l[index: index + batch_size],
             x_index_r: indices_train_r[index: index + batch_size],
@@ -339,13 +343,14 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
     best_validation_loss = numpy.inf
     best_iter = 0
     test_score = 0.
-    start_time = time.clock()
+    start_time = time.time()
+
     mid_time = start_time
 
     epoch = 0
     done_looping = False
     
-    svm_max=0.0
+    acc_max=0.0
     best_epoch=0
 
     while (epoch < n_epochs) and (not done_looping):
@@ -356,6 +361,8 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
         cost_tmp=0.0
         for batch_start in train_batch_start: 
             # iter means how many batches have been runed, taking into loop
+            if (batch_start+1)%1000==0:
+                print batch_start+1,  'uses ', (time.time()-mid_time)/60.0, 'min'
             iter = (epoch - 1) * n_train_batches + minibatch_index +1
 
             minibatch_index=minibatch_index+1
@@ -364,7 +371,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
             #time.sleep(0.5)
             #print batch_start
             if iter%update_freq != 0:
-                cost_ij, error_ij, layer3_input, y=train_model_predict(batch_start)
+                cost_ij, error_ij, layer3_input, y=train_model_predict(batch_start, 0.0)
                 #print 'layer3_input', layer3_input
                 cost_tmp+=cost_ij
                 error_sum+=error_ij
@@ -404,6 +411,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
                            'model %f %%') %
                           (epoch, minibatch_index, n_train_batches,
                            (1-test_score) * 100.))
+                acc_nn=1-test_score
                 #now, see the results of LR
                 #write_feature=open(rootPath+'feature_check.txt', 'w')
                 
@@ -411,7 +419,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
                 train_features=[]
                 count=0
                 for batch_start in train_batch_start: 
-                    cost_ij, error_ij, layer3_input, y=train_model_predict(batch_start)
+                    cost_ij, error_ij, layer3_input, y=train_model_predict(batch_start, 0.0)
                     train_y.append(y[0])
                     train_features.append(layer3_input[0])
                     #write_feature.write(str(batch_start)+' '+' '.join(map(str,layer3_input[0]))+'\n')
@@ -422,26 +430,39 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
                 clf = svm.SVC(C=1.0, kernel='linear')
                 clf.fit(train_features, train_y)
                 results=clf.predict(test_features)
+                lr=linear_model.LogisticRegression(C=1e5)
+                lr.fit(train_features, train_y)
+                results_lr=lr.predict(test_features)
                 corr_count=0
+                corr_count_lr=0
                 test_size=len(test_y)
                 for i in range(test_size):
                     if results[i]==test_y[i]:
                         corr_count+=1
-                acc=corr_count*1.0/test_size
-                if acc > svm_max:
-                    svm_max=acc
+                    if results_lr[i]==test_y[i]:
+                        corr_count_lr+=1
+                acc_svm=corr_count*1.0/test_size
+                acc_lr=corr_count_lr*1.0/test_size
+                if acc_svm > acc_max:
+                    acc_max=acc_svm
                     best_epoch=epoch
-                print '\t\t\t\t\t\t\t\t\t\t\tsvm acc: ', acc, ' max acc: ',    svm_max , ' at epoch: ', best_epoch  
+                if acc_lr > acc_max:
+                    acc_max=acc_lr
+                    best_epoch=epoch
+                if acc_nn > acc_max:
+                    acc_max=acc_nn
+                    best_epoch=epoch
+                print  'acc_nn:', acc_nn, 'acc_lr:', acc_lr, 'acc_svm:', acc_svm, ' max acc: ',    acc_max , ' at epoch: ', best_epoch  
 
             if patience <= iter:
                 done_looping = True
                 break
         
-        print 'Epoch ', epoch, 'uses ', (time.clock()-mid_time)/60.0, 'min'
-        mid_time = time.clock()
+        print 'Epoch ', epoch, 'uses ', (time.time()-mid_time)/60.0, 'min'
+        mid_time = time.time()
             
         #print 'Batch_size: ', update_freq
-    end_time = time.clock()
+    end_time = time.time()
     print('Optimization complete.')
     print('Best validation score of %f %% obtained at iteration %i,'\
           'with test performance %f %%' %

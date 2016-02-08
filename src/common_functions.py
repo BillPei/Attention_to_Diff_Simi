@@ -315,6 +315,7 @@ def Dim_Align(x):
     def series_sum(n):
         return n * (n + 1) / 2
     yz = T.zeros((series_sum(x),), dtype='int64')
+#     yz = T.zeros((series_sum(x),), dtype='int32')#for gpu
 
     def step(x1, y1, y2):
         i = series_sum(x1)

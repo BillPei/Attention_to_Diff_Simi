@@ -69,8 +69,8 @@ def load_entailment_corpus(vocabFile, trainFile, testFile, max_truncate,maxlengt
                     sent=[0]*left+sent+[0]*right
                     data.append(sent)
                 line_control+=1
-                if line_control==1000:
-                    break
+#                 if line_control==1000:
+#                     break
         read_file.close()
         if len(Lengths)/2 !=len(Y):
             print 'len(Lengths)/2 !=len(Y)'
@@ -114,8 +114,8 @@ def load_entailment_corpus(vocabFile, trainFile, testFile, max_truncate,maxlengt
                     sent=[0]*left+sent+[0]*right
                     data.append(sent)
                 line_control+=1
-                if line_control==500:
-                    break
+#                 if line_control==500:
+#                     break
         read_file.close()
         '''
         #normalized lengths
@@ -145,7 +145,7 @@ def load_entailment_corpus(vocabFile, trainFile, testFile, max_truncate,maxlengt
                                                dtype=theano.config.floatX),  # @UndefinedVariable
                                  borrow=borrow)
         return T.cast(shared_y, 'int64')
-        #return T.cast(shared_y, 'int32') # for gpu
+#         return T.cast(shared_y, 'int32') # for gpu
         #return shared_y
 
 
