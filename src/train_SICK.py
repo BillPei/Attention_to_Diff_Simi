@@ -29,18 +29,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn import linear_model
 from scipy import linalg, mat, dot
 
-# from preprocess_wikiQA import compute_map_mrr
 
-#need to change
-'''
-
-
-
-
-
-Doesnt work:
-
-'''
 
 #for gpu, we need change the load data function, Dim_Align, and lscalar, dmatrix blabla
 
