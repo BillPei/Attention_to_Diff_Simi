@@ -275,6 +275,37 @@ class GRU_Tensor3_Input(object):
                                      outputs_info=None)
         self.output=debug_print(new_M.transpose(), 'GRU_Tensor3_Input.output')
 
+def create_params_WbWAE(input_dim, output_dim):
+    W = numpy.random.uniform(-numpy.sqrt(1./output_dim), numpy.sqrt(1./output_dim), (6, output_dim, input_dim))
+    w = numpy.random.uniform(-numpy.sqrt(1./output_dim), numpy.sqrt(1./output_dim), (1,output_dim))
+
+    W = theano.shared(name='W', value=W.astype(theano.config.floatX))
+    w = theano.shared(name='w', value=w.astype(theano.config.floatX))
+    
+    return W, w
+
+class Word_by_Word_Attention_EntailmentPaper(object):
+    def __init__(self, l_hidden_M, r_hidden_M, W_y,W_h,W_r, w, W_t, W_p, W_x, r_dim):
+        self.Y=l_hidden_M
+        self.H=r_hidden_M
+        self.attention_dim=r_dim
+        self.r0 = theano.shared(name='r0', value=numpy.zeros(self.attention_dim, dtype=theano.config.floatX))
+        def loop(h_t, r_t_1):
+            M_t=T.tanh(W_y.dot(self.Y)+(W_h.dot(h_t)+W_r.dot(r_t_1)).dimshuffle(0,'x'))
+            alpha_t=T.nnet.softmax(w.dot(M_t))
+            r_t=self.Y.dot(alpha_t.reshape((self.Y.shape[1],1)))+T.tanh(W_t.dot(r_t_1))
+
+            r_t=T.sum(M_t, axis=1)
+            return r_t
+        
+        r, updates= theano.scan(loop,
+                                sequences=self.H.transpose(),
+                                outputs_info=self.r0
+                                )
+        
+        H_star=T.tanh(W_p.dot(r[-1]+W_x.dot(self.H[:,-1])))
+        self.output=H_star    
+
 class GRU_Batch_Tensor_Input(object):
     def __init__(self, X, hidden_dim, U, W, b, bptt_truncate):
         #now, X is (batch, emb_size, sentlength)
