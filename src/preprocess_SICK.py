@@ -120,6 +120,35 @@ def transcate_word2vec_into_entailment_vocab(rootPath):
     writeFile.close()
     readFile.close()
     print 'word2vec trancate over'    
+    
+def transcate_glove(path):
+    readFile=open('/mounts/data/proj/wenpeng/Dataset/glove.6B.50d.txt', 'r')
+    dim=50
+    glove={}
+    for line in readFile:
+        tokens=line.strip().split()
+        if len(tokens)<dim+1:
+            continue
+        else:
+            glove[tokens[0]]=map(float, tokens[1:])
+    readFile.close()
+    print 'glove loaded over...'
+    readFile=open(path+'vocab.txt', 'r')
+    writeFile=open(path+'vocab_glove_50d.txt', 'w')
+    random_emb=list(numpy.random.uniform(-0.01,0.01,dim))
+    unk=0
+    for line in readFile:
+        tokens=line.strip().split()
+        emb=glove.get(tokens[1])
+        if emb is None:
+            emb=glove.get(tokens[1].lower())
+            if emb is None:
+                emb=random_emb#list(numpy.random.uniform(-0.01,0.01,dim))
+                unk+=1
+        writeFile.write(tokens[1]+'\t'+' '.join(map(str, emb))+'\n')
+    writeFile.close()
+    readFile.close()
+    print 'glove trancate over, unk:', unk    
 
 def compute_map_mrr(file, probs):
     #file
@@ -1092,6 +1121,7 @@ if __name__ == '__main__':
     #extract_pairs(path, 'SICK.txt')
     #Extract_Vocab(path, 'train.txt', 'dev.txt', 'test.txt')
     #transcate_word2vec_into_entailment_vocab(path)
+    transcate_glove(path)
     #compute_map_mrr(path+'test_filtered.txt')
     #reform_for_bleu_nist(path, 'train_plus_dev.txt', 'train_plus_dev')
     #reform_for_maxsim(path, 'train_plus_dev.txt', 'train_plus_dev')
@@ -1101,7 +1131,7 @@ if __name__ == '__main__':
     #test_mt_metrics(path+'train.txt',  path+'test.txt') # found terp is not helpful
     #combine_train_trial(path, 'train.txt', 'dev.txt')
     #remove_overlap_words(path, 'train_plus_dev.txt', 'train_plus_dev')
-    features_for_nonoverlap_pairs(path, 'test_removed_overlap.txt', 'test')
+    #features_for_nonoverlap_pairs(path, 'test_removed_overlap.txt', 'test')
     #discriminative_weights(path, 'train_plus_dev_removed_overlap.txt', 'test_removed_overlap.txt')
     #use_nonoverlap_dataset(path, 'train_plus_dev_removed_overlap.txt', 'test_removed_overlap.txt') #maxlength 24, maxlentsh for train plus dev is also 24
     #Extract_Vocab(path, 'train_plus_dev_removed_overlap_as_training.txt', 'train_plus_dev_removed_overlap_as_training.txt', 'test_removed_overlap_as_training.txt')

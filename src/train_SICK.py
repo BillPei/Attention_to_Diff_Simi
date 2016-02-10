@@ -33,9 +33,9 @@ from scipy import linalg, mat, dot
 
 #for gpu, we need change the load data function, Dim_Align, and lscalar, dmatrix blabla
 
-def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
-                    maxSentLength=64, emb_size=300, hidden_size=200,
-                    margin=0.5, L2_weight=0.0003, update_freq=1, norm_threshold=5.0, max_truncate=33):# max_truncate can be 45
+def evaluate_lenet5(learning_rate=0.0002, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
+                    maxSentLength=64, emb_size=50, hidden_size=200,
+                    margin=0.5, L2_weight=0.0006, update_freq=1, norm_threshold=5.0, max_truncate=33):# max_truncate can be 45
     maxSentLength=max_truncate+2*(window_width-1)
     model_options = locals().copy()
     print "model options", model_options
@@ -101,7 +101,8 @@ def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_siz
     rand_values=random_value_normal((vocab_size+1, emb_size), theano.config.floatX, numpy.random.RandomState(1234))
     rand_values[0]=numpy.array(numpy.zeros(emb_size),dtype=theano.config.floatX)
     #rand_values[0]=numpy.array([1e-50]*emb_size)
-    rand_values=load_word2vec_to_init(rand_values, rootPath+'vocab_lower_in_word2vec_embs_300d.txt')
+    rand_values=load_word2vec_to_init(rand_values, rootPath+'vocab_glove_50d.txt')
+#     rand_values=load_word2vec_to_init(rand_values, rootPath+'vocab_lower_in_word2vec_embs_300d.txt')
     embeddings=theano.shared(value=rand_values, borrow=True)      
     
 
@@ -164,12 +165,19 @@ def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_siz
     l_input_tensor=debug_print(Matrix_Bit_Shift(layer0_l_input[:,left_l:-right_l]), 'l_input_tensor')
     r_input_tensor=debug_print(Matrix_Bit_Shift(layer0_r_input[:,left_r:-right_r]), 'r_input_tensor')
     
+    addition_l=T.sum(layer0_l_input[:,left_l:-right_l], axis=1)
+    addition_r=T.sum(layer0_r_input[:,left_r:-right_r], axis=1)
+    cosine_addition=cosine(addition_l, addition_r)
+    eucli_addition=1.0/(1.0+EUCLID(addition_l, addition_r))#25.2%
     
     U, W, b=create_GRU_para(rng, emb_size, nkerns[0])
     layer0_para=[U, W, b] 
 
     layer0_A1 = GRU_Batch_Tensor_Input(X=l_input_tensor, hidden_dim=nkerns[0],U=U,W=W,b=b,bptt_truncate=-1)
     layer0_A2 = GRU_Batch_Tensor_Input(X=r_input_tensor, hidden_dim=nkerns[0],U=U,W=W,b=b,bptt_truncate=-1)
+    
+    cosine_sent=cosine(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep)
+    eucli_sent=1.0/(1.0+EUCLID(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep))#25.2%
     
     attention_matrix=compute_simi_feature_matrix_with_matrix(layer0_A1.output_matrix, layer0_A2.output_matrix, layer0_A1.dim, layer0_A2.dim, maxSentLength*(maxSentLength+1)/2)
     
@@ -230,8 +238,9 @@ def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_siz
     #length_gap=T.sqrt((len_l-len_r)**2)
     #layer3_input=mts
     layer3_input=T.concatenate([vec_l, vec_r,
-                                uni_cosine,
-                                eucli_1,
+                                cosine_addition, eucli_addition,
+#                                 cosine_sent, eucli_sent,
+                                uni_cosine,eucli_1,
                                 mts,
                                 len_l, len_r,
                                 extra], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
@@ -241,7 +250,7 @@ def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_siz
     
     #layer3_input=T.concatenate([mts,eucli, uni_cosine, len_l, len_r, norm_uni_l-(norm_uni_l+norm_uni_r)/2], axis=1)
     #layer3=LogisticRegression(rng, input=layer3_input, n_in=11, n_out=2)
-    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+14+2+9, n_out=3)
+    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+2+14+2+9, n_out=3)
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
@@ -275,20 +284,43 @@ def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_siz
     params = layer3.params+ layer1_para+layer0_para#+[embeddings]# + layer1.params 
 #     params_conv = [conv_W, conv_b]
     
-    accumulator=[]
-    for para_i in params:
-        eps_p=numpy.zeros_like(para_i.get_value(borrow=True),dtype=theano.config.floatX)
-        accumulator.append(theano.shared(eps_p, borrow=True))
-      
-    # create a list of gradients for all model parameters
-    grads = T.grad(cost, params)
+#     accumulator=[]
+#     for para_i in params:
+#         eps_p=numpy.zeros_like(para_i.get_value(borrow=True),dtype=theano.config.floatX)
+#         accumulator.append(theano.shared(eps_p, borrow=True))
+#       
+#     # create a list of gradients for all model parameters
+#     grads = T.grad(cost, params)
+# 
+#     updates = []
+#     for param_i, grad_i, acc_i in zip(params, grads, accumulator):
+#         grad_i=debug_print(grad_i,'grad_i')
+#         acc = acc_i + T.sqr(grad_i)
+#         updates.append((param_i, param_i - learning_rate * grad_i / T.sqrt(acc)))   #AdaGrad
+#         updates.append((acc_i, acc))    
 
-    updates = []
-    for param_i, grad_i, acc_i in zip(params, grads, accumulator):
-        grad_i=debug_print(grad_i,'grad_i')
-        acc = acc_i + T.sqr(grad_i)
-        updates.append((param_i, param_i - learning_rate * grad_i / T.sqrt(acc)))   #AdaGrad
-        updates.append((acc_i, acc))    
+    def Adam(cost, params, lr=0.0002, b1=0.1, b2=0.001, e=1e-8):
+        updates = []
+        grads = T.grad(cost, params)
+        i = theano.shared(numpy.float64(0.))
+        i_t = i + 1.
+        fix1 = 1. - (1. - b1)**i_t
+        fix2 = 1. - (1. - b2)**i_t
+        lr_t = lr * (T.sqrt(fix2) / fix1)
+        for p, g in zip(params, grads):
+            m = theano.shared(p.get_value() * 0.)
+            v = theano.shared(p.get_value() * 0.)
+            m_t = (b1 * g) + ((1. - b1) * m)
+            v_t = (b2 * T.sqr(g)) + ((1. - b2) * v)
+            g_t = m_t / (T.sqrt(v_t) + e)
+            p_t = p - (lr_t * g_t)
+            updates.append((m, m_t))
+            updates.append((v, v_t))
+            updates.append((p, p_t))
+        updates.append((i, i_t))
+        return updates
+    
+    updates=Adam(cost=cost, params=params, lr=learning_rate)
   
     train_model = theano.function([index,cost_tmp], cost, updates=updates,
           givens={

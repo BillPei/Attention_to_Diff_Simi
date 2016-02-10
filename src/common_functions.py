@@ -305,6 +305,7 @@ class GRU_Batch_Tensor_Input(object):
         d2s=debug_print(d2s, 'd2s')
         self.output_matrix=debug_print(self.output_tensor[d0s,:,d2s].transpose(), 'self.output_matrix')  # before transpose, its (dim, hidden_size), each row is a hidden state
         self.dim=debug_print(self.output_tensor.shape[0]*(self.output_tensor.shape[0]+1)/2, 'self.dim')
+        self.output_sent_rep=self.output_tensor[0,:,-1]
         
         
 
