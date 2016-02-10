@@ -132,7 +132,7 @@ class Conv_with_input_para(object):
         left_padding = T.zeros((image_shape[0], 1, filter_shape[0], filter_shape[3]-1), dtype=theano.config.floatX)
         right_padding = T.zeros((image_shape[0], 1, filter_shape[0], filter_shape[3]-1), dtype=theano.config.floatX)
         self.output = T.concatenate([left_padding, narrow_conv_out, right_padding], axis=3) 
-        
+        self.output_max_pooling_vec=T.max(narrow_conv_out.reshape((narrow_conv_out.shape[2], narrow_conv_out.shape[3])), axis=1)
 
         # store parameters of this layer
         self.params = [self.W, self.b]
@@ -337,6 +337,7 @@ class GRU_Batch_Tensor_Input(object):
         self.output_matrix=debug_print(self.output_tensor[d0s,:,d2s].transpose(), 'self.output_matrix')  # before transpose, its (dim, hidden_size), each row is a hidden state
         self.dim=debug_print(self.output_tensor.shape[0]*(self.output_tensor.shape[0]+1)/2, 'self.dim')
         self.output_sent_rep=self.output_tensor[0,:,-1]
+        self.output_sent_hiddenstates=self.output_tensor[0]
         
         
 

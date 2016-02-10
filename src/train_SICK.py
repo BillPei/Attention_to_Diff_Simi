@@ -35,7 +35,7 @@ from scipy import linalg, mat, dot
 
 def evaluate_lenet5(learning_rate=0.0002, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
                     maxSentLength=64, emb_size=50, hidden_size=200,
-                    margin=0.5, L2_weight=0.0006, update_freq=1, norm_threshold=5.0, max_truncate=33):# max_truncate can be 45
+                    margin=0.5, L2_weight=0.0006, update_freq=1, norm_threshold=5.0, max_truncate=33, pooling_no=5):# max_truncate can be 45
     maxSentLength=max_truncate+2*(window_width-1)
     model_options = locals().copy()
     print "model options", model_options
@@ -183,29 +183,43 @@ def evaluate_lenet5(learning_rate=0.0002, n_epochs=2000, nkerns=[50,50], batch_s
     
     l_max_attention=T.max(attention_matrix, axis=1)
     neighborsArgSorted = T.argsort(l_max_attention)
-    kNeighborsArg = neighborsArgSorted[:3]#only average the min 3 vectors
+    kNeighborsArg = neighborsArgSorted[:pooling_no]#only average the min 3 vectors
     ll = T.sort(kNeighborsArg).flatten() # make y indices in acending lie
 
 
     r_max_attention=T.max(attention_matrix, axis=0)
     neighborsArgSorted_r = T.argsort(r_max_attention)
-    kNeighborsArg_r = neighborsArgSorted_r[:3]#only average the min 3 vectors
+    kNeighborsArg_r = neighborsArgSorted_r[:pooling_no]#only average the min 3 vectors
     rr = T.sort(kNeighborsArg_r).flatten() # make y indices in acending lie
 
     
     l_max_min_attention=debug_print(layer0_A1.output_matrix[:,ll], 'l_max_min_attention')
     r_max_min_attention=debug_print(layer0_A2.output_matrix[:,rr], 'r_max_min_attention')
     
-    U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
-    layer1_para=[U1, W1, b1] 
-
-    layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-    layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-
-    vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
-    vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
+#     U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
+#     layer1_para=[U1, W1, b1] 
+# 
+#     layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+#     layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+# 
+#     vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
+#     vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
 
     
+#     Conv_input=T.concatenate([l_max_min_attention.dimshuffle('x',0,1), r_max_min_attention.dimshuffle('x',0,1)], axis=0).dimshuffle('x', 0,1,2)
+    
+    filter_size=(nkerns[0],3)
+    conv_W, conv_b=create_conv_para(rng, filter_shape=(nkerns[1], 1, filter_size[0], filter_size[1]))
+    conv_para=[conv_W, conv_b]
+    #layer0_output = debug_print(layer0.output, 'layer0.output')
+    layerconv_l = Conv_with_input_para(rng, input=l_max_min_attention.dimshuffle('x', 'x',0,1),
+            image_shape=(1, 1, nkerns[0], pooling_no),
+            filter_shape=(nkerns[1], 1, filter_size[0], filter_size[1]), W=conv_W, b=conv_b)   
+    layerconv_r = Conv_with_input_para(rng, input=r_max_min_attention.dimshuffle('x', 'x',0,1),
+            image_shape=(1, 1, nkerns[0], pooling_no),
+            filter_shape=(nkerns[1], 1, filter_size[0], filter_size[1]), W=conv_W, b=conv_b)  
+    vec_l=debug_print(layerconv_l.output_max_pooling_vec.reshape((1, nkerns[1])), 'vec_l')
+    vec_r=debug_print(layerconv_r.output_max_pooling_vec.reshape((1, nkerns[1])), 'vec_r')
     
 #     sum_uni_l=T.sum(layer0_l_input, axis=3).reshape((1, emb_size))
 #     aver_uni_l=sum_uni_l/layer0_l_input.shape[3]
@@ -254,7 +268,7 @@ def evaluate_lenet5(learning_rate=0.0002, n_epochs=2000, nkerns=[50,50], batch_s
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
-    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
+    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(conv_W**2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
     cost_this =debug_print(layer3.negative_log_likelihood(y), 'cost_this')#+L2_weight*L2_reg
     cost=debug_print((cost_this+cost_tmp)/update_freq+L2_weight*L2_reg, 'cost')
     #cost=debug_print((cost_this+cost_tmp)/update_freq, 'cost')
@@ -281,7 +295,7 @@ def evaluate_lenet5(learning_rate=0.0002, n_epochs=2000, nkerns=[50,50], batch_s
 
 
     #params = layer3.params + layer2.params + layer1.params+ [conv_W, conv_b]
-    params = layer3.params+ layer1_para+layer0_para#+[embeddings]# + layer1.params 
+    params = layer3.params+layer0_para+conv_para#+[embeddings]# + layer1.params 
 #     params_conv = [conv_W, conv_b]
     
 #     accumulator=[]
