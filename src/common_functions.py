@@ -331,10 +331,13 @@ class GRU_Batch_Tensor_Input(object):
 #         self.output_matrix=debug_print(s.transpose(), 'GRU_Matrix_Input.output_matrix')
         self.output_tensor=debug_print(s.dimshuffle(2,1,0), 'self.output_tensor')
         
-        d0s, d2s=Dim_Align(self.output_tensor.shape[0])
-        d0s=debug_print(d0s, 'd0s')
-        d2s=debug_print(d2s, 'd2s')
-        self.output_matrix=debug_print(self.output_tensor[d0s,:,d2s].transpose(), 'self.output_matrix')  # before transpose, its (dim, hidden_size), each row is a hidden state
+#         d0s, d2s=Dim_Align(self.output_tensor.shape[0])
+#         d0s=debug_print(d0s, 'd0s')
+#         d2s=debug_print(d2s, 'd2s')
+#         self.output_matrix=debug_print(self.output_tensor[d0s,:,d2s].transpose(), 'self.output_matrix')  # before transpose, its (dim, hidden_size), each row is a hidden state
+        
+        d0s=Dim_Align_new(self.output_tensor.shape[0])
+        self.output_matrix=self.output_tensor.transpose(0,2,1).reshape((self.output_tensor.shape[0]*self.output_tensor.shape[2], self.output_tensor.shape[1]))[d0s].transpose()
         self.dim=debug_print(self.output_tensor.shape[0]*(self.output_tensor.shape[0]+1)/2, 'self.dim')
         self.output_sent_rep=self.output_tensor[0,:,-1]
         self.output_sent_hiddenstates=self.output_tensor[0]
@@ -363,7 +366,24 @@ def Dim_Align(x):
 #     return theano.function([x], [y1[-1], y2[-1]])
     return r1[-1], r2[-1]    
     
-    
+def Dim_Align_new(x):
+#     x = tt.lscalar()
+    def series_sum(n):
+        return n * (n + 1) / 2
+    yz = T.zeros((series_sum(x),), dtype='int64')
+#     yz = T.zeros((series_sum(x),), dtype='int32')#for gpu
+
+    def step(x1, y1):
+        i = series_sum(x1)
+        j = series_sum(x1 + 1)
+#         z1 = T.arange(x1 + 1)
+        z1=T.arange(x1,x1*x+1,x-1)[::-1]
+        y1 = T.set_subtensor(y1[i:j], z1)
+        return y1
+
+    r1, _ = theano.scan(step, sequences=[T.arange(x)], outputs_info=yz)
+#     return theano.function([x], [y1[-1], y2[-1]])
+    return r1[-1] 
 
 class biRNN_with_input_para(object):
     """Pool Layer of a convolutional network """
