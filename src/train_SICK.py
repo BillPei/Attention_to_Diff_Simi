@@ -23,7 +23,6 @@ from common_functions import Conv_with_input_para, Average_Pooling_for_Top, crea
 from random import shuffle
 
 from sklearn import svm
-from sklearn.multiclass import OneVsRestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LinearRegression
 from sklearn import linear_model
