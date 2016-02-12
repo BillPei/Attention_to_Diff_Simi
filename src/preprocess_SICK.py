@@ -108,8 +108,8 @@ def transcate_word2vec_into_entailment_vocab(rootPath):
             word2vec[tokens[0]]=map(float, tokens[1:])
     readFile.close()
     print 'word2vec loaded over...'
-    readFile=open(rootPath+'vocab_nonoverlap_train_plus_dev.txt', 'r')
-    writeFile=open(rootPath+'vocab_nonoverlap_train_plus_dev_in_word2vec_embs_300d.txt', 'w')
+    readFile=open(rootPath+'vocab.txt', 'r')
+    writeFile=open(rootPath+'vocab_word2vec_300d.txt', 'w')
     random_emb=list(numpy.random.uniform(-0.01,0.01,dim))
     for line in readFile:
         tokens=line.strip().split()
@@ -1113,15 +1113,27 @@ def extract_synonyms_hypernyms_antonyms(path, trainfile, testfile):
     writeanto.close()
     print 'over'
         
-    
+def augment(path, inputfile):
+    readfile=open(path+inputfile, 'r')
+    writefile=open(path+inputfile+'_augmented.txt', 'w')
+    for line in readfile:
+        parts=line.strip().split('\t')
+        label=parts[2]
+        writefile.write(line.strip()+'\n')
+        if label =='1' or label=='0':
+            writefile.write(parts[1]+'\t'+parts[0]+'\t'+'0\t'+parts[3]+'\n')
+        else:
+            writefile.write(parts[1]+'\t'+parts[0]+'\t'+parts[2]+'\t'+parts[3]+'\n')
+    writefile.close()
+    readfile.close()    
     
     
 if __name__ == '__main__':
     path='/mounts/data/proj/wenpeng/Dataset/SICK/'
     #extract_pairs(path, 'SICK.txt')
     #Extract_Vocab(path, 'train.txt', 'dev.txt', 'test.txt')
-    #transcate_word2vec_into_entailment_vocab(path)
-    transcate_glove(path)
+#     transcate_word2vec_into_entailment_vocab(path)
+#     transcate_glove(path)
     #compute_map_mrr(path+'test_filtered.txt')
     #reform_for_bleu_nist(path, 'train_plus_dev.txt', 'train_plus_dev')
     #reform_for_maxsim(path, 'train_plus_dev.txt', 'train_plus_dev')
@@ -1137,6 +1149,6 @@ if __name__ == '__main__':
     #Extract_Vocab(path, 'train_plus_dev_removed_overlap_as_training.txt', 'train_plus_dev_removed_overlap_as_training.txt', 'test_removed_overlap_as_training.txt')
     #transcate_word2vec_into_entailment_vocab(path)
     #extract_synonyms_hypernyms_antonyms(path, 'train_plus_dev_removed_overlap_as_training.txt', 'test_removed_overlap_as_training.txt')
-    
+#     augment(path, 'train_plus_dev.txt')
 
 

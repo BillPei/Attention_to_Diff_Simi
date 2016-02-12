@@ -45,7 +45,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     mt_train, mt_test=load_mts_wikiQA(rootPath+'Train_plus_dev_MT/concate_14mt_train.txt', rootPath+'Test_MT/concate_14mt_test.txt')
     extra_train, extra_test=load_extra_features(rootPath+'train_plus_dev_rule_features_cosine_eucli_negation_len1_len2_syn_hyper1_hyper2_anto(newsimi0.4).txt', rootPath+'test_rule_features_cosine_eucli_negation_len1_len2_syn_hyper1_hyper2_anto(newsimi0.4).txt')
     discri_train, discri_test=load_extra_features(rootPath+'train_plus_dev_discri_features_0.3.txt', rootPath+'test_discri_features_0.3.txt')
-    
+    tacl_train, tacl_test=load_mts_wikiQA(rootPath+'train_feature_0.852425601305.txt', rootPath+'test_feature_0.852425601305.txt')
     
     indices_train, trainY, trainLengths, normalized_train_length, trainLeftPad, trainRightPad= datasets[0]
     indices_train_l=indices_train[::2,:]
@@ -123,6 +123,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     mts=T.dmatrix()
     extra=T.dmatrix()
     discri=T.dmatrix()
+    tacl=T.dmatrix()
     cost_tmp=T.dscalar()
 
 
@@ -242,14 +243,16 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
                                 uni_cosine,eucli_1,
                                 mts,
                                 len_l, len_r,
-                                extra], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
+                                extra, 
+                                tacl], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
     
     
 
     
     #layer3_input=T.concatenate([mts,eucli, uni_cosine, len_l, len_r, norm_uni_l-(norm_uni_l+norm_uni_r)/2], axis=1)
     #layer3=LogisticRegression(rng, input=layer3_input, n_in=11, n_out=2)
-    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+2+14+2+9, n_out=3)
+    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+2+14+2+9+35, n_out=3)
+
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
@@ -275,7 +278,8 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             norm_length_r: normalized_test_length_r[index],
             mts: mt_test[index: index + batch_size],
             extra: extra_test[index: index + batch_size],
-            discri:discri_test[index: index + batch_size]
+            discri:discri_test[index: index + batch_size],
+            tacl: tacl_test[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
 
@@ -336,7 +340,8 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             norm_length_r: normalized_train_length_r[index],
             mts: mt_train[index: index + batch_size],
             extra: extra_train[index: index + batch_size],
-            discri:discri_train[index: index + batch_size]
+            discri:discri_train[index: index + batch_size],
+            tacl: tacl_train[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
     train_model_predict = theano.function([index, cost_tmp], [cost_this,layer3.errors(y), layer3_input, y],
@@ -354,7 +359,8 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             norm_length_r: normalized_train_length_r[index],
             mts: mt_train[index: index + batch_size],
             extra: extra_train[index: index + batch_size],
-            discri:discri_train[index: index + batch_size]
+            discri:discri_train[index: index + batch_size],
+            tacl: tacl_train[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
 
