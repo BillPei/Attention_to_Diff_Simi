@@ -32,7 +32,7 @@ from scipy import linalg, mat, dot
 
 #for gpu, we need change the load data function, Dim_Align, and lscalar, dmatrix blabla
 
-def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_size=30, window_width=3,
+def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_size=10, window_width=3,
                     maxSentLength=64, emb_size=50, hidden_size=200,
                     margin=0.5, L2_weight=0.0006, update_freq=1, norm_threshold=5.0, max_truncate=33):# max_truncate can be 45
     maxSentLength=max_truncate+2*(window_width-1)

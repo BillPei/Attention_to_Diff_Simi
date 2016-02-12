@@ -235,8 +235,8 @@ def load_SICK_corpus(vocabFile, trainFile, testFile, max_truncate,maxlength, ent
                 sent=[0]*left+sent+[0]*right
                 data.append(sent)
             line_control+=1
-            #if line_control==500:
-            #    break
+#             if line_control==50:
+#                 break
         read_file.close()
         if len(Lengths)/2 !=len(Y):
             print 'len(Lengths)/2 !=len(Y)'
@@ -284,8 +284,8 @@ def load_SICK_corpus(vocabFile, trainFile, testFile, max_truncate,maxlength, ent
                 sent=[0]*left+sent+[0]*right
                 data.append(sent)
             line_control+=1
-            #if line_control==200:
-            #    break
+#             if line_control==20:
+#                 break
         read_file.close()
         '''
         #normalized lengths
