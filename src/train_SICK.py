@@ -41,7 +41,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     rootPath='/mounts/data/proj/wenpeng/Dataset/SICK/';
     rng = numpy.random.RandomState(23455)
 #     datasets, vocab_size=load_SICK_corpus(rootPath+'vocab_lower_in_word2vec.txt', rootPath+'train.txt', rootPath+'test.txt', max_truncate,maxSentLength)#vocab_size contain train, dev and test
-    datasets, vocab_size=load_SICK_corpus(rootPath+'vocab.txt', rootPath+'train_plus_dev.txt', rootPath+'test.txt', max_truncate,maxSentLength, entailment=True)
+    datasets, vocab_size=load_SICK_corpus(rootPath+'vocab.txt', rootPath+'train_plus_dev.txt_augmented.txt', rootPath+'test.txt', max_truncate,maxSentLength, entailment=True)
     mt_train, mt_test=load_mts_wikiQA(rootPath+'Train_plus_dev_MT/concate_14mt_train.txt', rootPath+'Test_MT/concate_14mt_test.txt')
     extra_train, extra_test=load_extra_features(rootPath+'train_plus_dev_rule_features_cosine_eucli_negation_len1_len2_syn_hyper1_hyper2_anto(newsimi0.4).txt', rootPath+'test_rule_features_cosine_eucli_negation_len1_len2_syn_hyper1_hyper2_anto(newsimi0.4).txt')
     discri_train, discri_test=load_extra_features(rootPath+'train_plus_dev_discri_features_0.3.txt', rootPath+'test_discri_features_0.3.txt')
@@ -200,26 +200,26 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     l_max_min_attention=debug_print(layer0_A1.output_matrix[:,ll], 'l_max_min_attention')
     r_max_min_attention=debug_print(layer0_A2.output_matrix[:,rr], 'r_max_min_attention')
     
-#     U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
-#     layer1_para=[U1, W1, b1] 
-# 
-#     layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-#     layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-# 
-#     vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
-#     vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
+    U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
+    layer1_para=[U1, W1, b1] 
+ 
+    layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+    layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+ 
+    vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
+    vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
 
-    conv_W, conv_b=create_conv_para(rng, filter_shape=(nkerns[1], 1, nkerns[0], 2))
-    conv_params=[conv_W, conv_b]
-    #layer0_output = debug_print(layer0.output, 'layer0.output')
-    layer_conv_l = Conv_with_input_para(rng, input=l_max_min_attention.reshape((1,1, l_max_min_attention.shape[0], l_max_min_attention.shape[1])),
-            image_shape=(1, 1, nkerns[0], 3),
-            filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)  
-    layer_conv_r = Conv_with_input_para(rng, input=r_max_min_attention.reshape((1,1, r_max_min_attention.shape[0], r_max_min_attention.shape[1])),
-            image_shape=(1, 1, nkerns[0], 3),
-            filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)   
-    vec_l= layer_conv_l.output_max_pooling_vec.reshape((1, nkerns[1]))
-    vec_r= layer_conv_r.output_max_pooling_vec.reshape((1, nkerns[1]))
+#     conv_W, conv_b=create_conv_para(rng, filter_shape=(nkerns[1], 1, nkerns[0], 2))
+#     conv_params=[conv_W, conv_b]
+#     #layer0_output = debug_print(layer0.output, 'layer0.output')
+#     layer_conv_l = Conv_with_input_para(rng, input=l_max_min_attention.reshape((1,1, l_max_min_attention.shape[0], l_max_min_attention.shape[1])),
+#             image_shape=(1, 1, nkerns[0], 3),
+#             filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)  
+#     layer_conv_r = Conv_with_input_para(rng, input=r_max_min_attention.reshape((1,1, r_max_min_attention.shape[0], r_max_min_attention.shape[1])),
+#             image_shape=(1, 1, nkerns[0], 3),
+#             filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)   
+#     vec_l= layer_conv_l.output_max_pooling_vec.reshape((1, nkerns[1]))
+#     vec_r= layer_conv_r.output_max_pooling_vec.reshape((1, nkerns[1]))
     
 #     sum_uni_l=T.sum(layer0_l_input, axis=3).reshape((1, emb_size))
 #     aver_uni_l=sum_uni_l/layer0_l_input.shape[3]
@@ -253,24 +253,25 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     #layer3_input=mts
     layer3_input=T.concatenate([vec_l, vec_r,
                                 cosine_addition, eucli_addition,
-#                                 cosine_sent, eucli_sent,
-                                uni_cosine,eucli_1,
-                                mts,
-                                len_l, len_r,
-                                extra, 
-                                tacl], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
+                                 cosine_sent, eucli_sent,
+                                uni_cosine,eucli_1
+#                                 mts,
+#                                 len_l, len_r,
+#                                 extra
+                                #tacl
+                                ], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
     
     
 
     
     #layer3_input=T.concatenate([mts,eucli, uni_cosine, len_l, len_r, norm_uni_l-(norm_uni_l+norm_uni_r)/2], axis=1)
     #layer3=LogisticRegression(rng, input=layer3_input, n_in=11, n_out=2)
-    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+2+14+2+9+35, n_out=3)
+    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[1]+2+2+2, n_out=3)
 
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
-    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(conv_W** 2).sum()+(Wa1** 2).sum()+(Wa2** 2).sum()+(wa** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
+    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1**2).sum()+(Wa1** 2).sum()+(Wa2** 2).sum()+(wa** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
     cost_this =debug_print(layer3.negative_log_likelihood(y), 'cost_this')#+L2_weight*L2_reg
     cost=debug_print((cost_this+cost_tmp)/update_freq+L2_weight*L2_reg, 'cost')
     #cost=debug_print((cost_this+cost_tmp)/update_freq, 'cost')
@@ -289,26 +290,26 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             length_l: testLengths_l[index],
             length_r: testLengths_r[index],
             norm_length_l: normalized_test_length_l[index],
-            norm_length_r: normalized_test_length_r[index],
-            mts: mt_test[index: index + batch_size],
-            extra: extra_test[index: index + batch_size],
-            discri:discri_test[index: index + batch_size],
-            tacl: tacl_test[index: index + batch_size]
+            norm_length_r: normalized_test_length_r[index]
+#             mts: mt_test[index: index + batch_size],
+#             extra: extra_test[index: index + batch_size],
+#             discri:discri_test[index: index + batch_size],
+#             tacl: tacl_test[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
 
     #params = layer3.params + layer2.params + layer1.params+ [conv_W, conv_b]
-    params = layer3.params+ attention_params+conv_params+layer0_para#+[embeddings]# + layer1.params 
+    params = layer3.params+ attention_params+layer1_para+layer0_para#+[embeddings]# + layer1.params 
 #     params_conv = [conv_W, conv_b]
     
 #     accumulator=[]
 #     for para_i in params:
 #         eps_p=numpy.zeros_like(para_i.get_value(borrow=True),dtype=theano.config.floatX)
 #         accumulator.append(theano.shared(eps_p, borrow=True))
-#         
+#          
 #     # create a list of gradients for all model parameters
 #     grads = T.grad(cost, params)
-#   
+#    
 #     updates = []
 #     for param_i, grad_i, acc_i in zip(params, grads, accumulator):
 #         grad_i=debug_print(grad_i,'grad_i')
@@ -350,11 +351,11 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             length_l: trainLengths_l[index],
             length_r: trainLengths_r[index],
             norm_length_l: normalized_train_length_l[index],
-            norm_length_r: normalized_train_length_r[index],
-            mts: mt_train[index: index + batch_size],
-            extra: extra_train[index: index + batch_size],
-            discri:discri_train[index: index + batch_size],
-            tacl: tacl_train[index: index + batch_size]
+            norm_length_r: normalized_train_length_r[index]
+#             mts: mt_train[index: index + batch_size],
+#             extra: extra_train[index: index + batch_size],
+#             discri:discri_train[index: index + batch_size],
+#             tacl: tacl_train[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
     train_model_predict = theano.function([index, cost_tmp], [cost_this,layer3.errors(y), layer3_input, y],
@@ -369,11 +370,11 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             length_l: trainLengths_l[index],
             length_r: trainLengths_r[index],
             norm_length_l: normalized_train_length_l[index],
-            norm_length_r: normalized_train_length_r[index],
-            mts: mt_train[index: index + batch_size],
-            extra: extra_train[index: index + batch_size],
-            discri:discri_train[index: index + batch_size],
-            tacl: tacl_train[index: index + batch_size]
+            norm_length_r: normalized_train_length_r[index]
+#             mts: mt_train[index: index + batch_size],
+#             extra: extra_train[index: index + batch_size],
+#             discri:discri_train[index: index + batch_size],
+#             tacl: tacl_train[index: index + batch_size]
             }, on_unused_input='ignore', allow_input_downcast=True)
 
 
