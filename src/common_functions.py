@@ -5,6 +5,27 @@ from theano.tensor.nnet import conv
 from cis.deep.utils.theano import debug_print
 from WPDefined import repeat_whole_matrix, repeat_whole_tensor
 
+def create_AttentionMatrix_para(rng, n_in, n_out):
+
+    W1_values = numpy.asarray(rng.uniform(
+            low=-numpy.sqrt(6. / (n_in + n_out)),
+            high=numpy.sqrt(6. / (n_in + n_out)),
+            size=(n_in, n_out)), dtype=theano.config.floatX)  # @UndefinedVariable
+    W1 = theano.shared(value=W1_values, name='W1', borrow=True)
+    W2_values = numpy.asarray(rng.uniform(
+            low=-numpy.sqrt(6. / (n_in + n_out)),
+            high=numpy.sqrt(6. / (n_in + n_out)),
+            size=(n_in, n_out)), dtype=theano.config.floatX)  # @UndefinedVariable
+    W2 = theano.shared(value=W2_values, name='W2', borrow=True)
+    
+#     b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)  # @UndefinedVariable
+    w_values = numpy.asarray(rng.uniform(
+            low=-numpy.sqrt(6. / (n_out+1)),
+            high=numpy.sqrt(6. / (n_out+1)),
+            size=(n_out,)), dtype=theano.config.floatX)  # @UndefinedVariable
+    w = theano.shared(value=w_values, name='w', borrow=True)
+    return W1,W2, w
+
 
 def create_HiddenLayer_para(rng, n_in, n_out):
 
@@ -1086,6 +1107,44 @@ def compute_simi_feature_matrix_with_matrix(input_l_matrix, input_r_matrix, leng
     
     
     return simi_matrix#[:length_l, :length_r]
+
+def compute_attention_feature_matrix_with_matrix(input_l_matrix, input_r_matrix, length_l, length_r, dim, W1, W2, w):
+    #this function is the same with "compute_simi_feature_batch1_new", except that this has no input parameters
+    matrix_r_after_translate=input_r_matrix
+    
+    input_l_tensor=input_l_matrix.dimshuffle('x',0,1)
+    input_l_tensor=T.repeat(input_l_tensor, dim, axis=0)[:length_r,:,:]
+    input_l_tensor=input_l_tensor.dimshuffle(2,1,0).dimshuffle(0,2,1)
+    repeated_1=input_l_tensor.reshape((length_l*length_r, input_l_matrix.shape[0])).dimshuffle(1,0)
+    
+    input_r_tensor=matrix_r_after_translate.dimshuffle('x',0,1)
+    input_r_tensor=T.repeat(input_r_tensor, dim, axis=0)[:length_l,:,:]
+    input_r_tensor=input_r_tensor.dimshuffle(0,2,1)
+    repeated_2=input_r_tensor.reshape((length_l*length_r, matrix_r_after_translate.shape[0])).dimshuffle(1,0)
+    
+    proj_1=W1.dot(repeated_1)
+    proj_2=W2.dot(repeated_2)
+    
+    attentions=T.tanh(w.dot(proj_1+proj_2))
+    attention_matrix=attentions.reshape((length_l, length_r))
+#     #cosine attention   
+#     length_1=debug_print(1e-10+T.sqrt(T.sum(T.sqr(repeated_1), axis=0)),'length_1')
+#     length_2=debug_print(1e-10+T.sqrt(T.sum(T.sqr(repeated_2), axis=0)), 'length_2')
+# 
+#     multi=debug_print(repeated_1*repeated_2, 'multi')
+#     sum_multi=debug_print(T.sum(multi, axis=0),'sum_multi')
+#     
+#     list_of_simi= debug_print(sum_multi/(length_1*length_2),'list_of_simi')   #to get rid of zero length
+#     simi_matrix=debug_print(list_of_simi.reshape((length_l, length_r)), 'simi_matrix')
+    
+    
+#     #euclid, effective for wikiQA
+#     gap=debug_print(repeated_1-repeated_2, 'gap')
+#     eucli=debug_print(T.sqrt(1e-10+T.sum(T.sqr(gap), axis=0)),'eucli')
+#     simi_matrix=debug_print((1.0/(1.0+eucli)).reshape((length_l, length_r)), 'simi_matrix')
+    
+    
+    return attention_matrix#[:length_l, :length_r]
 
 def compute_simi_feature_matrix_with_column(input_l_matrix, column, length_l, length_r, dim):
     column=column.reshape((column.shape[0],1))

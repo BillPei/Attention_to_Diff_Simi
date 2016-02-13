@@ -19,7 +19,7 @@ from theano.tensor.signal import downsample
 from theano.tensor.nnet import conv
 from load_data import load_entailment_corpus , load_word2vec_to_init, load_SICK_corpus, load_mts_wikiQA, load_extra_features
 from word2embeddings.nn.util import zero_value, random_value_normal
-from common_functions import Conv_with_input_para, Average_Pooling_for_Top, create_conv_para, create_GRU_para, GRU_Tensor3_Input, GRU_Matrix_Input, Matrix_Bit_Shift, GRU_Batch_Tensor_Input, compute_simi_feature_matrix_with_matrix
+from common_functions import Conv_with_input_para, Average_Pooling_for_Top, create_conv_para, create_GRU_para, GRU_Tensor3_Input, GRU_Matrix_Input, Matrix_Bit_Shift, GRU_Batch_Tensor_Input, compute_simi_feature_matrix_with_matrix, create_AttentionMatrix_para, compute_attention_feature_matrix_with_matrix
 from random import shuffle
 
 from sklearn import svm
@@ -179,7 +179,11 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     cosine_sent=cosine(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep)
     eucli_sent=1.0/(1.0+EUCLID(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep))#25.2%
     
-    attention_matrix=compute_simi_feature_matrix_with_matrix(layer0_A1.output_matrix, layer0_A2.output_matrix, layer0_A1.dim, layer0_A2.dim, maxSentLength*(maxSentLength+1)/2)
+    
+    Wa1, Wa2, wa=create_AttentionMatrix_para(rng, nkerns[0], nkerns[0]) # we dont change the dimension here
+    
+    attention_params=[Wa1, Wa2, wa]
+    attention_matrix=compute_attention_feature_matrix_with_matrix(layer0_A1.output_matrix, layer0_A2.output_matrix, layer0_A1.dim, layer0_A2.dim, maxSentLength*(maxSentLength+1)/2, Wa1, Wa2, wa)
     
     l_max_attention=T.max(attention_matrix, axis=1)
     neighborsArgSorted = T.argsort(l_max_attention)
@@ -256,7 +260,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
-    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
+    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1** 2).sum()+(Wa1** 2).sum()+(Wa2** 2).sum()+(wa** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
     cost_this =debug_print(layer3.negative_log_likelihood(y), 'cost_this')#+L2_weight*L2_reg
     cost=debug_print((cost_this+cost_tmp)/update_freq+L2_weight*L2_reg, 'cost')
     #cost=debug_print((cost_this+cost_tmp)/update_freq, 'cost')
@@ -284,17 +288,17 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
 
 
     #params = layer3.params + layer2.params + layer1.params+ [conv_W, conv_b]
-    params = layer3.params+ layer1_para+layer0_para#+[embeddings]# + layer1.params 
+    params = layer3.params+ attention_params+layer1_para+layer0_para#+[embeddings]# + layer1.params 
 #     params_conv = [conv_W, conv_b]
     
 #     accumulator=[]
 #     for para_i in params:
 #         eps_p=numpy.zeros_like(para_i.get_value(borrow=True),dtype=theano.config.floatX)
 #         accumulator.append(theano.shared(eps_p, borrow=True))
-#       
+#         
 #     # create a list of gradients for all model parameters
 #     grads = T.grad(cost, params)
-# 
+#   
 #     updates = []
 #     for param_i, grad_i, acc_i in zip(params, grads, accumulator):
 #         grad_i=debug_print(grad_i,'grad_i')
@@ -322,7 +326,6 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
             updates.append((p, p_t))
         updates.append((i, i_t))
         return updates
-    
     updates=Adam(cost=cost, params=params, lr=learning_rate)
   
     train_model = theano.function([index,cost_tmp], cost, updates=updates,
@@ -393,6 +396,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     done_looping = False
     
     acc_max=0.0
+    acc_pre=-1
     best_epoch=0
 
     while (epoch < n_epochs) and (not done_looping):
@@ -495,7 +499,18 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
                 if acc_nn > acc_max:
                     acc_max=acc_nn
                     best_epoch=epoch
-                print  'acc_nn:', acc_nn, 'acc_lr:', acc_lr, 'acc_svm:', acc_svm, ' max acc: ',    acc_max , ' at epoch: ', best_epoch  
+                print  'acc_nn:', acc_nn, 'acc_lr:', acc_lr, 'acc_svm:', acc_svm, ' max acc: ',    acc_max , ' at epoch: ', best_epoch 
+                if acc_max > acc_pre and acc_max > 0.86:
+                    write_feature_train=open(rootPath+'acl2016_train_feature_'+str(acc_max)+'.txt', 'w')
+                    write_feature_test=open(rootPath+'acl2016_test_feature_'+str(acc_max)+'.txt', 'w')
+                    for i in range(len(train_features)):
+                        write_feature_train.write(' '.join(map(str, train_features[i]))+'\n')
+                    for i in range(len(test_features)):
+                        write_feature_test.write(' '.join(map(str, test_features[i]))+'\n')
+                    write_feature_train.close()
+                    write_feature_test.close()
+                    print 'features stored over'
+                    acc_pre=acc_max 
 
             if patience <= iter:
                 done_looping = True
