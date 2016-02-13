@@ -200,16 +200,26 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     l_max_min_attention=debug_print(layer0_A1.output_matrix[:,ll], 'l_max_min_attention')
     r_max_min_attention=debug_print(layer0_A2.output_matrix[:,rr], 'r_max_min_attention')
     
-    U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
-    layer1_para=[U1, W1, b1] 
+#     U1, W1, b1=create_GRU_para(rng, nkerns[0], nkerns[1])
+#     layer1_para=[U1, W1, b1] 
+# 
+#     layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+#     layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
+# 
+#     vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
+#     vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
 
-    layer1_A1=GRU_Matrix_Input(X=l_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-    layer1_A2=GRU_Matrix_Input(X=r_max_min_attention, word_dim=nkerns[0], hidden_dim=nkerns[1],U=U1,W=W1,b=b1,bptt_truncate=-1)
-
-    vec_l=debug_print(layer1_A1.output_vector_last.reshape((1, nkerns[1])), 'vec_l')
-    vec_r=debug_print(layer1_A2.output_vector_last.reshape((1, nkerns[1])), 'vec_r')
-
-    
+    conv_W, conv_b=create_conv_para(rng, filter_shape=(nkerns[1], 1, nkerns[0], 2))
+    conv_params=[conv_W, conv_b]
+    #layer0_output = debug_print(layer0.output, 'layer0.output')
+    layer_conv_l = Conv_with_input_para(rng, input=l_max_min_attention.reshape((1,1, l_max_min_attention.shape[0], l_max_min_attention.shape[1])),
+            image_shape=(1, 1, nkerns[0], 3),
+            filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)  
+    layer_conv_r = Conv_with_input_para(rng, input=r_max_min_attention.reshape((1,1, r_max_min_attention.shape[0], r_max_min_attention.shape[1])),
+            image_shape=(1, 1, nkerns[0], 3),
+            filter_shape=(nkerns[1], 1, nkerns[0], 2), W=conv_W, b=conv_b)   
+    vec_l= layer_conv_l.output_max_pooling_vec.reshape((1, nkerns[1]))
+    vec_r= layer_conv_r.output_max_pooling_vec.reshape((1, nkerns[1]))
     
 #     sum_uni_l=T.sum(layer0_l_input, axis=3).reshape((1, emb_size))
 #     aver_uni_l=sum_uni_l/layer0_l_input.shape[3]
@@ -260,7 +270,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
-    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(U1** 2).sum()+(W1** 2).sum()+(Wa1** 2).sum()+(Wa2** 2).sum()+(wa** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
+    L2_reg =debug_print((layer3.W** 2).sum()+(U** 2).sum()+(W** 2).sum()+(conv_W** 2).sum()+(Wa1** 2).sum()+(Wa2** 2).sum()+(wa** 2).sum(), 'L2_reg')#+(layer1.W** 2).sum()++(embeddings**2).sum()
     cost_this =debug_print(layer3.negative_log_likelihood(y), 'cost_this')#+L2_weight*L2_reg
     cost=debug_print((cost_this+cost_tmp)/update_freq+L2_weight*L2_reg, 'cost')
     #cost=debug_print((cost_this+cost_tmp)/update_freq, 'cost')
@@ -288,7 +298,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
 
 
     #params = layer3.params + layer2.params + layer1.params+ [conv_W, conv_b]
-    params = layer3.params+ attention_params+layer1_para+layer0_para#+[embeddings]# + layer1.params 
+    params = layer3.params+ attention_params+conv_params+layer0_para#+[embeddings]# + layer1.params 
 #     params_conv = [conv_W, conv_b]
     
 #     accumulator=[]
