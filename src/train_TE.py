@@ -44,9 +44,9 @@ Doesnt work:
 
 #for gpu, we need change the load data function, Dim_Align, and lscalar, dmatrix blabla
 
-def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
+def evaluate_lenet5(learning_rate=0.05, n_epochs=2000, nkerns=[50,50], batch_size=1, window_width=3,
                     maxSentLength=64, emb_size=50, hidden_size=200,
-                    margin=0.5, L2_weight=0.0003, update_freq=10000, norm_threshold=5.0, max_truncate=45):
+                    margin=0.5, L2_weight=0.0003, update_freq=1, norm_threshold=5.0, max_truncate=30):# max_truncate can be 45
     maxSentLength=max_truncate+2*(window_width-1)
     model_options = locals().copy()
     print "model options", model_options
@@ -134,7 +134,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
     #wmf=T.dmatrix()
     cost_tmp=T.dscalar()
 
-    #GPU
+#     #GPU
 #     index = T.iscalar()
 #     x_index_l = T.imatrix('x_index_l')   # now, x is the index matrix, must be integer
 #     x_index_r = T.imatrix('x_index_r')
@@ -333,7 +333,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
                            # found
     improvement_threshold = 0.995  # a relative improvement of this much is
                                    # considered significant
-    validation_frequency = min(n_train_batches, patience / 2)
+    validation_frequency = min(n_train_batches/5, patience / 2)
                                   # go through this many
                                   # minibatche before checking the network
                                   # on the validation set; in this case we
@@ -415,6 +415,7 @@ def evaluate_lenet5(learning_rate=0.01, n_epochs=2000, nkerns=[50,50], batch_siz
                 #now, see the results of LR
                 #write_feature=open(rootPath+'feature_check.txt', 'w')
                 
+                #this step is risky: if the training data is too big, then this step will make the training time twice longer
                 train_y=[]
                 train_features=[]
                 count=0
