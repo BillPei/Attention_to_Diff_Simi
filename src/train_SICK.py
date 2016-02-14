@@ -178,9 +178,18 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     cosine_sent=cosine(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep)
     eucli_sent=1.0/(1.0+EUCLID(layer0_A1.output_sent_rep, layer0_A2.output_sent_rep))#25.2%
     
+    #ibm attentive pooling at extended sentence level
     attention_matrix=compute_simi_feature_matrix_with_matrix(layer0_A1.output_matrix, layer0_A2.output_matrix, layer0_A1.dim, layer0_A2.dim, maxSentLength*(maxSentLength+1)/2)
+    attention_vec_l_extended=T.nnet.softmax(T.max(attention_matrix, axis=1)).transpose()
+    ibm_l_extended=layer0_A1.output_matrix.dot(attention_vec_l_extended).transpose()
+    attention_vec_r_extended=T.nnet.softmax(T.max(attention_matrix, axis=0)).transpose()
+    ibm_r_extended=layer0_A2.output_matrix.dot(attention_vec_r_extended).transpose()    
+    cosine_ibm_extended=cosine(ibm_l_extended, ibm_r_extended)
+    eucli_ibm_extended=1.0/(1.0+EUCLID(ibm_l_extended, ibm_r_extended))#25.2%      
     
-    #ibm attentive pooling
+    
+    
+    #ibm attentive pooling at original sentence level
     simi_matrix_sent=compute_simi_feature_matrix_with_matrix(layer0_A1.output_sent_hiddenstates, layer0_A2.output_sent_hiddenstates, length_l, length_r, maxSentLength)
     attention_vec_l=T.nnet.softmax(T.max(simi_matrix_sent, axis=1)).transpose()
     ibm_l=layer0_A1.output_sent_hiddenstates.dot(attention_vec_l).transpose()
@@ -246,11 +255,17 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     #length_gap=T.sqrt((len_l-len_r)**2)
     #layer3_input=mts
     layer3_input=T.concatenate([vec_l, vec_r,
-                                ibm_l.reshape((1, nkerns[0])), ibm_r.reshape((1, nkerns[0])), #2*nkerns[0]+
+                                uni_cosine,eucli_1,
                                 cosine_addition, eucli_addition,
 #                                 cosine_sent, eucli_sent,
+
+                                ibm_l.reshape((1, nkerns[0])), ibm_r.reshape((1, nkerns[0])), #2*nkerns[0]+
                                 cosine_ibm, eucli_ibm,
-                                uni_cosine,eucli_1,
+
+                                ibm_l_extended.reshape((1, nkerns[0])), ibm_r_extended.reshape((1, nkerns[0])), #2*nkerns[0]+
+                                cosine_ibm_extended, eucli_ibm_extended,
+                                
+
                                 mts,
                                 len_l, len_r,
                                 extra], axis=1)#, layer2.output, layer1.output_cosine], axis=1)
@@ -260,7 +275,7 @@ def evaluate_lenet5(learning_rate=0.0001, n_epochs=2000, nkerns=[50,50], batch_s
     
     #layer3_input=T.concatenate([mts,eucli, uni_cosine, len_l, len_r, norm_uni_l-(norm_uni_l+norm_uni_r)/2], axis=1)
     #layer3=LogisticRegression(rng, input=layer3_input, n_in=11, n_out=2)
-    layer3=LogisticRegression(rng, input=layer3_input, n_in=2*nkerns[0]+2*nkerns[1]+2+2+2+14+2+9, n_out=3)
+    layer3=LogisticRegression(rng, input=layer3_input, n_in=(2*nkerns[1]+2)+2 +(2*nkerns[0]+2)+(2*nkerns[0]+2)+14+2+9, n_out=3)
 
     
     #L2_reg =(layer3.W** 2).sum()+(layer2.W** 2).sum()+(layer1.W** 2).sum()+(conv_W** 2).sum()
