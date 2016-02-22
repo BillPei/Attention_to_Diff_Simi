@@ -1,6 +1,7 @@
 import numpy
 import theano
 import theano.tensor as T
+import theano.tensor.nlinalg
 from theano.tensor.nnet import conv
 from cis.deep.utils.theano import debug_print
 from WPDefined import repeat_whole_matrix, repeat_whole_tensor
@@ -387,7 +388,8 @@ def Dim_Align(x):
 #     return theano.function([x], [y1[-1], y2[-1]])
     return r1[-1], r2[-1]    
     
-def Dim_Align_new(x):
+def Dim_Align_new(x): 
+    #there is a bug, when input x=1, namely the sentence has only one word
 #     x = tt.lscalar()
     def series_sum(n):
         return n * (n + 1) / 2
@@ -1328,6 +1330,18 @@ class Create_Attention_Input_Cnn(object):
         
         self.params=[self.W]
 
+def Diversify_Reg(W):
+    loss=((W.dot(W.T)-T.eye(n=W.shape[0], m=W.shape[0], k=0, dtype=theano.config.floatX))**2).sum()  
+    return loss  
+
+def Determinant(W):
+    prod=W.dot(W.T)
+    loss=-T.log(theano.tensor.nlinalg.Det()(prod))
+    return loss
     
     
+    
+    
+    
+
     
